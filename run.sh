@@ -1,0 +1,1 @@
+python trainer/trainer_pretrain.py --use_wandb

@@ -3,7 +3,8 @@ import sys
 
 
 __package__ = "trainer"
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+sys.path.append(PROJECT_ROOT)
 
 import argparse  # 命令行参数解析
 import time  # 时间统计
@@ -126,7 +127,7 @@ def train_epoch(epoch, loader, iters, start_step=0, wandb=None):
                 epoch=epoch,
                 step=step,
                 wandb=wandb,
-                save_dir="../checkpoints",  # ！修正：原"checkpoints"缺少../前缀
+                save_dir=os.path.join(PROJECT_ROOT, "checkpoints"),
             )
 
             model.train()  # 恢复训练模式
@@ -137,8 +138,11 @@ if __name__ == "__main__":
 
     # ========== 基础训练参数 ==========
     parser.add_argument(
-        "--save_dir", type=str, default="../out", help="模型保存目录"
-    )  # ！修正：原"out"缺少../前缀
+        "--save_dir",
+        type=str,
+        default=os.path.join(PROJECT_ROOT, "out"),
+        help="模型保存目录",
+    )
     parser.add_argument(
         "--save_weight", default="pretrain", type=str, help="保存权重的前缀名"
     )
@@ -184,7 +188,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--data_path",
         type=str,
-        default="../dataset/pretrain_hq.jsonl",  # ！修正：原"dataset/..."缺少../前缀
+        default=os.path.join(PROJECT_ROOT, "dataset", "pretrain_hq.jsonl"),
         help="预训练数据路径",
     )
     parser.add_argument(
@@ -209,6 +213,12 @@ if __name__ == "__main__":
 
     # 解析命令行参数
     args = parser.parse_args()
+    args.data_path = os.path.abspath(args.data_path)
+    if not os.path.exists(args.data_path):
+        raise FileNotFoundError(
+            f"预训练数据不存在: {args.data_path}\n"
+            "请传入 --data_path，或在 dataset/pretrain_hq.jsonl 放置 JSONL 数据（每行格式: {\"text\": \"...\"}）"
+        )
 
     # ========== 1. 初始化环境和随机种子 ==========
     """
@@ -246,8 +256,10 @@ if __name__ == "__main__":
     # 如果开启了断点续训，尝试加载之前的训练状态
     ckp_data = (
         lm_checkpoint(
-            lm_config, weight=args.save_weight, save_dir="../checkpoints"
-        )  # ！修正：原"checkpoints"缺少../前缀
+            lm_config,
+            weight=args.save_weight,
+            save_dir=os.path.join(PROJECT_ROOT, "checkpoints"),
+        )
         if args.from_resume == 1
         else None
     )
