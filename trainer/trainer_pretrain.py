@@ -46,7 +46,12 @@ def train_epoch(epoch, loader, iters, start_step=0, wandb=None):
             args.device
         )  # ！修正：接收并转移 attention_mask
 
-        lr = get_lr(epoch * iters + step, args.epochs * iters, args.learning_rate)
+        lr = get_lr(
+            epoch * iters + step,
+            args.epochs * iters,
+            args.learning_rate,
+            args.warmup_steps,
+        )
 
         for param_group in optimizer.param_groups:
             param_group["lr"] = lr
@@ -65,7 +70,7 @@ def train_epoch(epoch, loader, iters, start_step=0, wandb=None):
 
         scaler.scale(loss).backward()
 
-        if step % args.accumulation_steps == 0:
+        if step % args.accumulation_steps == 0 or step == iters:
             # scaler.unscale_(): 还原梯度的真实值
             scaler.unscale_(optimizer)
 
@@ -151,6 +156,12 @@ if __name__ == "__main__":
     )
     parser.add_argument("--batch_size", type=int, default=32, help="batch size")
     parser.add_argument("--learning_rate", type=float, default=5e-4, help="初始学习率")
+    parser.add_argument(
+        "--warmup_steps",
+        type=int,
+        default=200,
+        help="学习率预热步数，降低训练初期震荡",
+    )
 
     # ========== 硬件和性能参数 ==========
     parser.add_argument(

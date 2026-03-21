@@ -6,6 +6,8 @@ import torch
 import torch.distributed as dist
 from torch.utils.data import Sampler
 
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+
 
 # 检查是否是主进程
 def is_main_process():
@@ -19,10 +21,17 @@ def Logger(content):
 
 
 # 动态学习率计算
-def get_lr(current_step, total_steps, lr):
-    return (
-        lr * (0.1 + 0.45 * (1 + math.cos(math.pi * current_step / total_steps)))
-    )  # ！修正：原公式 step=0 时 lr=1.1*lr 超出设定值，现修正为 step=0→lr, step=end→0.1*lr
+def get_lr(current_step, total_steps, lr, warmup_steps=0):
+    total_steps = max(total_steps, 1)
+    current_step = min(max(current_step, 0), total_steps)
+
+    if warmup_steps > 0 and current_step < warmup_steps:
+        return lr * current_step / max(warmup_steps, 1)
+
+    decay_steps = max(total_steps - warmup_steps, 1)
+    decay_progress = min(max(current_step - warmup_steps, 0), decay_steps)
+    cosine = 0.5 * (1 + math.cos(math.pi * decay_progress / decay_steps))
+    return lr * (0.1 + 0.9 * cosine)
 
 
 # 初始化分布式
@@ -129,7 +138,7 @@ def init_model(
     lm_config,
     from_weight="pretrain",
     tokenizer_path=None,
-    save_dir="../out",
+    save_dir=None,
     device="cuda",
 ):
     from transformers import AutoTokenizer
@@ -137,10 +146,12 @@ def init_model(
 
     # 如果没有指定 tokenizer_path，使用项目根目录下的 model 文件夹
     if tokenizer_path is None:
-        # 获取当前文件所在目录的父目录（项目根目录）
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        project_root = os.path.dirname(current_dir)
-        tokenizer_path = os.path.join(project_root, "model")
+        tokenizer_path = os.path.join(PROJECT_ROOT, "model")
+
+    if save_dir is None:
+        save_dir = os.path.join(PROJECT_ROOT, "out")
+    elif not os.path.isabs(save_dir):
+        save_dir = os.path.join(PROJECT_ROOT, save_dir)
 
     tokenizer = AutoTokenizer.from_pretrained(tokenizer_path)
 
