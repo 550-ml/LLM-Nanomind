@@ -120,7 +120,7 @@ def main():
     parser.add_argument("--save_dir", default="out", type=str, help="模型权重目录")
     parser.add_argument(
         "--weight",
-        default="full_sft",
+        default="pretrain",
         type=str,
         help="权重名称前缀（pretrain, full_sft, rlhf, reason, ppo_actor, grpo, spo）",
     )

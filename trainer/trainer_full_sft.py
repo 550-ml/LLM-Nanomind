@@ -193,7 +193,7 @@ if __name__ == "__main__":
         help="训练设备",
     )
     parser.add_argument("--dtype", type=str, default="bfloat16", help="混合精度类型")
-    parser.add_argument("--num_workers", type=int, default=8, help="数据加载线程数")
+    parser.add_argument("--num_workers", type=int, default=4, help="数据加载线程数")
 
     # ========== 训练策略参数 ==========
     parser.add_argument(
@@ -208,7 +208,7 @@ if __name__ == "__main__":
     parser.add_argument("--num_hidden_layers", default=8, type=int, help="隐藏层数量")
     parser.add_argument(
         "--max_seq_len",
-        default=340,
+        default=512,
         type=int,
         help="训练的最大截断长度（中文1token≈1.5~1.7字符）",
     )

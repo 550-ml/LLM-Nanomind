@@ -1,5 +1,11 @@
-# python trainer/trainer_full_sft.py \
-#   --use_wandb
-CUDA_VISIBLE_DEVICES=0,2,3,4,5 torchrun --nproc_per_node=5 trainer/trainer_full_sft.py --use_wandb \
-  --batch_size 40 \
-  
+#!/usr/bin/env bash
+# SFT 默认已基于预训练：脚本里 --from_weight 默认是 pretrain，
+# 会加载 <项目根>/out/pretrain_{hidden_size}.pth（MoE 时为 pretrain_{hidden_size}_moe.pth）。
+# 请先跑完预训练并保证上述文件存在，或与 --hidden_size / --use_moe 一致。
+# 若预训练保存的前缀不是 pretrain，显式传: --from_weight <前缀>
+# 权重目录为项目根下 out/；若在别处请先复制或软链到 out/
+
+CUDA_VISIBLE_DEVICES=0,2,3,4,5 torchrun --nproc_per_node=5 trainer/trainer_full_sft.py \
+  --use_wandb \
+  --batch_size 39 \
+  --learning_rate 5e-5

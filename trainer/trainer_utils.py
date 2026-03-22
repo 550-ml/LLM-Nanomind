@@ -164,7 +164,7 @@ def init_model(
         weight_path = (
             f"{save_dir}/{from_weight}_{lm_config.hidden_size}{moe_suffix}.pth"
         )
-
+        print(f"Loading weights from {weight_path}")
         weights = torch.load(weight_path, map_location=device)
 
         model.load_state_dict(weights, strict=False)
