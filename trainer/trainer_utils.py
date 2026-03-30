@@ -21,17 +21,30 @@ def Logger(content):
 
 
 # 动态学习率计算
-def get_lr(current_step, total_steps, lr, warmup_steps=0):
+def get_lr(
+    current_step,
+    total_steps,
+    lr,
+    warmup_steps=0,
+    warmdown_ratio=0.1,
+    final_lr_frac=0.1,
+):
     total_steps = max(total_steps, 1)
     current_step = min(max(current_step, 0), total_steps)
 
     if warmup_steps > 0 and current_step < warmup_steps:
         return lr * current_step / max(warmup_steps, 1)
 
-    decay_steps = max(total_steps - warmup_steps, 1)
-    decay_progress = min(max(current_step - warmup_steps, 0), decay_steps)
-    cosine = 0.5 * (1 + math.cos(math.pi * decay_progress / decay_steps))
-    return lr * (0.1 + 0.9 * cosine)
+    warmdown_steps = int(total_steps * warmdown_ratio)
+    warmdown_steps = min(max(warmdown_steps, 0), total_steps)
+    warmdown_start = max(warmup_steps, total_steps - warmdown_steps)
+
+    if warmdown_steps == 0 or current_step <= warmdown_start:
+        return lr
+
+    progress = (current_step - warmdown_start) / max(warmdown_steps, 1)
+    progress = min(max(progress, 0.0), 1.0)
+    return lr * (1.0 - (1.0 - final_lr_frac) * progress)
 
 
 # 初始化分布式
@@ -142,7 +155,7 @@ def init_model(
     device="cuda",
 ):
     from transformers import AutoTokenizer
-    from model.MokioModel import MokioMindForCausalLM
+    from model.NanoMind import NanoMindForCausalLM
 
     # 如果没有指定 tokenizer_path，使用项目根目录下的 model 文件夹
     if tokenizer_path is None:
@@ -155,7 +168,8 @@ def init_model(
 
     tokenizer = AutoTokenizer.from_pretrained(tokenizer_path)
 
-    model = MokioMindForCausalLM(lm_config)
+    model = NanoMindForCausalLM(lm_config)
+    model.init_weights()
 
     if from_weight != "none":
         moe_suffix = (

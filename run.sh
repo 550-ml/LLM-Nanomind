@@ -1,9 +1,9 @@
 # pre_train
-CUDA_VISIBLE_DEVICES=0,2,3,4,5 torchrun --nproc_per_node=5 trainer/trainer_pretrain.py --use_wandb \
-  --batch_size 32 \
+CUDA_VISIBLE_DEVICES=0,1,2,3,4 torchrun --nproc_per_node=5 trainer/trainer_pretrain.py --use_wandb \
+  --batch_size 16 \
   --epochs 6 \
-  --use_moe 0 \
-
+  --total_batch_size_tokens 262144 \
+  --num_hidden_layers 10
 # python trainer/trainer_pretrain.py --use_wandb \
 #   --batch_size  \
 #   --epochs 6 \

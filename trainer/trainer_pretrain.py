@@ -16,7 +16,7 @@ from torch import optim  # 优化器
 from torch.nn.parallel import DistributedDataParallel  # 分布式数据并行
 from torch.utils.data import DataLoader, DistributedSampler  # 数据加载器
 
-from model.MokioModel import MokioMindConfig
+from model.NanoMind import NanoMindConfig
 from dataset.lm_dataset import PretrainDataset
 from trainer.trainer_utils import (  # 训练工具函数
     get_lr,
@@ -51,6 +51,8 @@ def train_epoch(epoch, loader, iters, start_step=0, wandb=None):
             args.epochs * iters,
             args.learning_rate,
             args.warmup_steps,
+            args.warmdown_ratio,
+            args.final_lr_frac,
         )
 
         for param_group in optimizer.param_groups:
@@ -139,7 +141,7 @@ def train_epoch(epoch, loader, iters, start_step=0, wandb=None):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="MokioMind Pretraining")
+    parser = argparse.ArgumentParser(description="NanoMind Pretraining")
 
     # ========== 基础训练参数 ==========
     parser.add_argument(
@@ -155,12 +157,30 @@ if __name__ == "__main__":
         "--epochs", type=int, default=1, help="训练轮数（建议1轮zero或2-6轮充分训练）"
     )
     parser.add_argument("--batch_size", type=int, default=32, help="batch size")
+    parser.add_argument(
+        "--total_batch_size_tokens",
+        type=int,
+        default=0,
+        help="目标全局 token batch；>0 时自动反推 accumulation_steps",
+    )
     parser.add_argument("--learning_rate", type=float, default=5e-4, help="初始学习率")
     parser.add_argument(
         "--warmup_steps",
         type=int,
         default=200,
         help="学习率预热步数，降低训练初期震荡",
+    )
+    parser.add_argument(
+        "--warmdown_ratio",
+        type=float,
+        default=0.1,
+        help="训练末尾线性衰减阶段占总步数的比例",
+    )
+    parser.add_argument(
+        "--final_lr_frac",
+        type=float,
+        default=0.01,
+        help="线性衰减结束时的学习率比例",
     )
 
     # ========== 硬件和性能参数 ==========
@@ -183,7 +203,7 @@ if __name__ == "__main__":
 
     # ========== 模型架构参数 ==========
     parser.add_argument("--hidden_size", default=512, type=int, help="隐藏层维度")
-    parser.add_argument("--num_hidden_layers", default=8, type=int, help="隐藏层数量")
+    parser.add_argument("--num_hidden_layers", default=10, type=int, help="隐藏层数量")
     parser.add_argument(
         "--max_seq_len", default=512, type=int, help="训练的最大截断长度"
     )
@@ -257,7 +277,7 @@ if __name__ == "__main__":
     os.makedirs(args.save_dir, exist_ok=True)  # 确保保存目录存在
 
     # 创建MiniMind模型配置
-    lm_config = MokioMindConfig(
+    lm_config = NanoMindConfig(
         hidden_size=args.hidden_size,
         num_hidden_layers=args.num_hidden_layers,
         use_moe=bool(args.use_moe),
@@ -288,7 +308,7 @@ if __name__ == "__main__":
     # 📚 上下文管理器知识点
     # CPU不支持autocast，使用nullcontext作为空操作
     autocast_ctx = (
-        nullcontext() if device_type == "cpu" else torch.cuda.amp.autocast(dtype=dtype)
+        nullcontext() if device_type == "cpu" else torch.amp.autocast(dtype=dtype)
     )
 
     # ========== 4. 配置WandB实验跟踪 ==========
@@ -326,11 +346,34 @@ if __name__ == "__main__":
     # 初始化模型和分词器
     model, tokenizer = init_model(lm_config, args.from_weight, device=args.device)
 
+    world_size = dist.get_world_size() if dist.is_initialized() else 1
+    micro_batch_tokens_per_rank = args.batch_size * args.max_seq_len
+    global_micro_batch_tokens = micro_batch_tokens_per_rank * world_size
+    if args.total_batch_size_tokens > 0:
+        if args.total_batch_size_tokens % global_micro_batch_tokens != 0:
+            raise ValueError(
+                "total_batch_size_tokens 必须能被 "
+                f"batch_size * max_seq_len * world_size 整除，当前为 "
+                f"{args.total_batch_size_tokens} vs {global_micro_batch_tokens}"
+            )
+        args.accumulation_steps = (
+            args.total_batch_size_tokens // global_micro_batch_tokens
+        )
+
+    Logger(
+        f"每卡 micro-batch tokens: {args.batch_size} x {args.max_seq_len} = {micro_batch_tokens_per_rank}"
+    )
+    Logger(f"全局 micro-batch tokens: {global_micro_batch_tokens}")
+    Logger(f"梯度累积步数: {args.accumulation_steps}")
+    Logger(
+        f"每次 optimizer step 的全局 tokens: {global_micro_batch_tokens * args.accumulation_steps}"
+    )
+
     train_ds = PretrainDataset(args.data_path, tokenizer, max_length=args.max_seq_len)
 
     train_sampler = DistributedSampler(train_ds) if dist.is_initialized() else None
 
-    scaler = torch.cuda.amp.GradScaler(enabled=(args.dtype == "float16"))
+    scaler = torch.amp.GradScaler(enabled=(args.dtype == "float16"))
 
     optimizer = optim.AdamW(model.parameters(), lr=args.learning_rate)
 

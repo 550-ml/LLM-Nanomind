@@ -14,7 +14,7 @@ from contextlib import nullcontext  # 上下文管理器
 from torch import optim, nn  # 优化器和神经网络模块
 from torch.nn.parallel import DistributedDataParallel  # 分布式数据并行
 from torch.utils.data import DataLoader, DistributedSampler  # 数据加载器
-from model.MokioModel import MokioMindConfig  # 模型配置
+from model.NanoMind import NanoMindConfig  # 模型配置
 from dataset.lm_dataset import SFTDataset  # 监督微调数据集
 from trainer.trainer_utils import (
     get_lr,
@@ -60,7 +60,14 @@ def train_epoch(epoch, loader, iters, start_step=0, wandb=None):
 
         # 📚 学习率调度：使用余弦退火+预热策略
         # 从初始学习率逐渐降低到接近0
-        lr = get_lr(epoch * iters + step, args.epochs * iters, args.learning_rate)
+        lr = get_lr(
+            epoch * iters + step,
+            args.epochs * iters,
+            args.learning_rate,
+            args.warmup_steps,
+            args.warmdown_ratio,
+            args.final_lr_frac,
+        )
         for param_group in optimizer.param_groups:
             param_group["lr"] = lr
 
@@ -169,7 +176,7 @@ def train_epoch(epoch, loader, iters, start_step=0, wandb=None):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="MokioMind Full SFT")
+    parser = argparse.ArgumentParser(description="NanoMind Full SFT")
 
     # ========== 基础训练参数 ==========
     parser.add_argument(
@@ -198,6 +205,19 @@ if __name__ == "__main__":
     # ========== 训练策略参数 ==========
     parser.add_argument(
         "--accumulation_steps", type=int, default=1, help="梯度累积步数"
+    )
+    parser.add_argument("--warmup_steps", type=int, default=0, help="学习率预热步数")
+    parser.add_argument(
+        "--warmdown_ratio",
+        type=float,
+        default=0.1,
+        help="训练末尾线性衰减阶段占总步数的比例",
+    )
+    parser.add_argument(
+        "--final_lr_frac",
+        type=float,
+        default=0.1,
+        help="线性衰减结束时的学习率比例",
     )
     parser.add_argument("--grad_clip", type=float, default=1.0, help="梯度裁剪阈值")
     parser.add_argument("--log_interval", type=int, default=100, help="日志打印间隔")
@@ -276,7 +296,7 @@ if __name__ == "__main__":
     - Pretrain脚本中from_weight='none'表示从头开始
     """
     os.makedirs(args.save_dir, exist_ok=True)  # 确保保存目录存在
-    lm_config = MokioMindConfig(
+    lm_config = NanoMindConfig(
         hidden_size=args.hidden_size,
         num_hidden_layers=args.num_hidden_layers,
         use_moe=bool(args.use_moe),
