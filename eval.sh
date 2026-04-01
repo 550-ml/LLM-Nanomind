@@ -8,8 +8,8 @@ CUDA_VISIBLE_DEVICES=0 python eval.py \
   --save_dir out \
   --weight pretrain \
   --lora_weight None \
-  --hidden_size 512 \
-  --num_hidden_layers 12 \
+  --hidden_size 768 \
+  --num_hidden_layers 8 \
   --use_moe 0 \
   --max_new_tokens 512 \
   --temperature 0.85 \
