@@ -482,7 +482,50 @@ class NanoMindForCausalLM(PreTrainedModel, GenerationMixin):
         )
         output.aux_loss = aux_loss
         return output
-        
+    
+    # @torch.inference_mode()
+    # def generate(
+    #     self,
+    #     inputs =None,
+    #     attention_mask = None, 
+    #     max_new_tokens = 8192,
+    #     temperature=0.85, 
+    #     top_p=0.85, 
+    #     top_k=50, 
+    #     eos_token_id=2, 
+    #     streamer=None, 
+    #     use_cache=True, 
+    #     num_return_sequences=1, 
+    #     do_sample=True, 
+    #     repetition_penalty=1.0, 
+    #     **kwargs 
+    # ):
+    #     input_ids = kwargs.pop("input_ids", inputs).repeat(num_return_sequences, 1)  # [B*n, S]
+    #     attention_mask = attention_mask.repeat(num_return_sequences, 1) if attention_mask is not None else None  # [B*n, S]
+    #     past_key_values = kwargs.pop("past_key_values", None)
+    #     finished = torch.zeros(input_ids.shape[0], dtype=torch.bool, device=input_ids.device)
+    #     if streamer: streamer.put(input_ids.cpu())
+    #     for _ in range(max_new_tokens):
+    #         past_len = past_key_values[0][0].shape[1] if past_key_values else 0
+    #         outputs = self.forward(
+    #             input_ids=input_ids[:, past_len:],
+    #             attention_mask=attention_mask,
+    #             past_key_values=past_key_values,
+    #             use_cache=use_cache,
+    #             **kwargs,
+    #         )
+    #         attention_mask = torch.cat([attention_mask, attention_mask.new_ones(attention_mask.shape[0], 1)], -1) if attention_mask is not None else None
+    #         # 最后一个token
+    #         logits = outputs.logits[:, -1, :] / temperature
+    #         if repetition_penalty != 1.0:
+    #             for i in range(input_ids.shape[0]): logits[i, torch.unique(input_ids[i])] /= repetition_penalty
+    #         if top_k > 0: 
+    #             logits[logits < torch.topk(logits, top_k)[0][..., -1, None]] = -float('inf')
+    #         if top_p < 1.0:
+    #             sorted_logits, sorted_indices = torch.sort(logits, descending=True)
+    #             mask = torch.cumsum(torch.softmax(sorted_logits, dim=-1), dim=-1) > top_p
+    #             mask[..., 1:], mask[..., 0] = mask[..., :-1].clone(), 0
+    #     pass
     @torch.inference_mode()
     def generate(self, inputs=None, attention_mask=None, max_new_tokens=8192, temperature=0.85, top_p=0.85, top_k=50, eos_token_id=2, streamer=None, use_cache=True, num_return_sequences=1, do_sample=True, repetition_penalty=1.0, **kwargs):
         input_ids = kwargs.pop("input_ids", inputs).repeat(num_return_sequences, 1)
