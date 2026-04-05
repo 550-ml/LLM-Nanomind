@@ -36,6 +36,7 @@ def rep_penalty(text, n=3, cap=0.5):
 class CriticModel(NanoMindForCausalLM):
     def __init__(self, params):
         # lmhead
+        super().__init__(params)
         self.value_head = nn.Linear(params.hidden_size, 1)
     
     def forward(self,input_ids=None, attention_mask=None, **kwargs ):
@@ -304,7 +305,7 @@ if __name__ == "__main__":
     parser.add_argument("--save_dir", type=str, default="./out", help="模型保存目录")
     parser.add_argument('--save_weight', default='ppo_actor', type=str, help="保存权重的前缀名")
     parser.add_argument("--epochs", type=int, default=1, help="训练轮数")
-    parser.add_argument("--batch_size", type=int, default=2, help="batch size")
+    parser.add_argument("--batch_size", type=int, default=4, help="batch size")
     parser.add_argument("--learning_rate", type=float, default=3e-7, help="Actor学习率")
     parser.add_argument("--critic_learning_rate", type=float, default=5e-7, help="Critic学习率")
     parser.add_argument("--device", type=str, default="cuda:0" if torch.cuda.is_available() else "cpu", help="训练设备")

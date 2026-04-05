@@ -102,9 +102,13 @@ class TorchRolloutEngine(RolloutEngine):
         ctx = self.autocast_ctx if self.autocast_ctx else nullcontext()
         with ctx:
             per_token_logps = compute_per_token_logps(self.policy_model, output_ids, completion_ids.size(1))  # 
-            
+
         completions = self.tokenizer.batch_decode(completion_ids, skip_special_tokens=True)
         return RolloutResult(output_ids, completion_ids, per_token_logps, completions)
+
+    def update_policy(self, model: torch.nn.Module):
+        self.policy_model = model
+        return True
     
 # ===== SGLang HTTP API 推理引擎 =====
 class SGLangRolloutEngine(RolloutEngine):

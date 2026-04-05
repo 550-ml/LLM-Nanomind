@@ -384,8 +384,8 @@ class NanoMindModel(nn.Module):
     ):
         # input_ids [B, S]
         batch_size, seq_length = input_ids.shape
-        if hasattr(past_key_values, "layers"):
-            past_key_values = None
+        if hasattr(past_key_values, "to_legacy_cache"):
+            past_key_values = past_key_values.to_legacy_cache()
         past_key_values = past_key_values or [None] * len(self.layers)
         
         # 计算start_pos

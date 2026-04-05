@@ -1,19 +1,14 @@
 #!/usr/bin/env bash
 
-HF_ENDPOINT=https://hf-mirror.com
+export HF_ENDPOINT=https://hf-mirror.com
+export HF_HOME=/root/autodl-tmp
+export HF_HUB_CACHE=/root/autodl-tmp/hub
+export TRANSFORMERS_CACHE=/root/autodl-tmp/hub
 
-CUDA_VISIBLE_DEVICES=0,1,2,3,4,5 torchrun --nproc_per_node=6 trainer/trainer_ppo.py \
+CUDA_VISIBLE_DEVICES=0,1,2,3 torchrun --nproc_per_node=4 trainer/train_ppo.py \
   --use_wandb \
-  --from_resume 1 \
-  --save_dir out \
-  --save_weight ppo_actor \
-  --epochs 2 \
-  --batch_size 2 \
-  --learning_rate 8e-8 \
-  --critic_learning_rate 8e-8 \
-  --hidden_size 512 \
-  --num_hidden_layers 8 \
-  --use_moe 0 \
-  --reasoning 0 \
-  --data_path dataset/rlaif-mini.jsonl \
-  --reward_model_path internlm/internlm2-1_8b-reward
+  --data_path /root/autodl-tmp/rlaif.jsonl \
+  --reward_model_path /root/autodl-tmp/hub/models--internlm--internlm2-1_8b-reward/snapshots/25f3593492ab4625ce00fce8c5e67802d6e702ca \
+  --debug_mode \
+  --rollout_engine torch \
+  --use_compile 1 && /usr/bin/shutdown  
