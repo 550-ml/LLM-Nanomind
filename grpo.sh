@@ -15,7 +15,7 @@ python trainer/train_grpo.py \
   --use_wandb \
   --data_path /root/autodl-tmp/rlaif.jsonl \
   --reward_model_path /root/autodl-tmp/hub/models--internlm--internlm2-1_8b-reward/snapshots/25f3593492ab4625ce00fce8c5e67802d6e702ca \
-  --rollout_engine torch
+  --rollout_engine torch && /usr/bin/shutdown  
 
 # 如果你需要像 ppo.sh 一样训练完自动关机，取消下一行注释即可
 # /usr/bin/shutdown
